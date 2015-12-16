@@ -363,6 +363,14 @@
         "changes_to" : ["MASOCHIST_MED", "CENOBITE"]
     },{
         "type" : "mutation",
+        "id" : "NUDIST",
+        "name" : "Nudist",
+        "points" : 1,
+        "description" : "Your birthday suit has always been your favourite one. You receive a morale bonus while undressed.",
+        "starting_trait" : true,
+        "valid" : false
+    },{
+        "type" : "mutation",
         "id" : "STYLISH",
         "name" : "Stylish",
         "points" : 2,

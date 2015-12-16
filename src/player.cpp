@@ -137,6 +137,7 @@ namespace {
             { _( "Heard Disturbing Scream" ) },
 
             { _( "Masochism" ) },
+			{ _( "Nudist" ) },
             { _( "Hoarder" ) },
             { _( "Stylish" ) },
             { _( "Optimist" ) },
@@ -625,6 +626,34 @@ void player::apply_persistent_morale()
 
         if(bonus) {
             add_morale(MORALE_PERM_FANCY, bonus, bonus, 5, 5, true);
+        }
+    }
+
+	// Nudists get bonus morale for not wearing too much clothes
+    if (has_trait("NUDIST")) {
+        int bonus = 0;
+        std::bitset<num_bp> covered;
+        std::map<int, int> bodyCoverage; // coverage of body parts [part, coverage]
+        for(auto &elem : worn) {
+            const auto bps = elem.get_covered_body_parts();
+            covered |= bps;
+            for (int bp = 0; bp < num_bp; ++bp) {
+                bodyCoverage[bp] = std::max(bodyCoverage[bp], bps.test(bp) ? elem.get_coverage() : 0);
+            }
+        }
+
+        auto fnNudeBonus = [&bodyCoverage](int part, int maxBonus)->int {
+            const float nakedness = static_cast<float>(50 - std::min(50, bodyCoverage[part]))/50.0f;
+            return static_cast<int>(nakedness * nakedness * static_cast<float>(maxBonus));
+        };
+
+        bonus += fnNudeBonus(bp_torso, 1000);
+        bonus += (fnNudeBonus(bp_leg_l, 500) + fnNudeBonus(bp_leg_r, 500));
+        if (!covered.any()) bonus += 500; // additional bonus if the player is naked :3
+        bonus /= 100; // maximum 25
+
+        if(bonus) {
+            add_morale(MORALE_PERM_NUDIST, bonus, bonus, 5, 5, true);
         }
     }
 
