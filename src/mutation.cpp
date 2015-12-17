@@ -14,6 +14,7 @@
 #include "mapdata.h"
 #include "debug.h"
 #include "field.h"
+#include "mtype.h"
 
 #include <math.h>    //sqrt
 #include <algorithm> //std::min
@@ -470,6 +471,99 @@ void player::activate_mutation( const std::string &mut )
         print_health();
         tdata.powered = false;
         return;
+    }
+    // Psi Mutations
+    else if ( mut == "PSI_HARM" ) {
+        //g->refresh_all();
+        tripoint tp;
+        std::vector<tripoint> trajectory = g->pl_target_ui(tp, 20, &(g->u.weapon), target_mode::TARGET_MODE_REACH);
+
+        if (!trajectory.empty()) {
+            Creature* critter = g->critter_at(tp);
+            if (critter != NULL) {
+                const std::string mat = critter->get_material();
+
+                if (critter->is_player()) {
+                    add_msg(_("You don't want to hurt yourself!"));
+                } else if (std::string::npos == (mat.find("flesh")) && mat != "veggy" && mat != "bone") {
+                    add_msg(_("You can't damage creatures made of %s with psionic powers!"), mat.c_str());
+                } else {
+                    bool bKilled = false;
+                    damage_instance di;
+                    int dmg = rng(10, 40);
+                    int hp = critter->get_hp();
+                    if (hp <= dmg) {
+                        // If victim is going to die apply overkill damage for bloody mess explosion effect :3
+                        dmg = 200;
+                        bKilled = true;
+                    }
+                    di.add_damage(DT_TRUE, dmg);
+                    dealt_damage_instance ddi = critter->deal_damage(&g->u, bp_torso, di);
+                    std::string zName = critter->disp_name(true);
+                    if (one_in(5)) {
+                        critter->add_effect("stunned", rng(2, 8));
+                    }
+
+                    if (bKilled) {
+                        add_msg(_("%s body explodes in a mess!"), capitalize_letter(zName).c_str());
+                    } else {
+                        add_msg(_("%s flesh ripples dealing %d damage!"), capitalize_letter(zName).c_str(), ddi.total_damage());
+                    }
+                }
+            }
+        }
+        tdata.powered = false;
+    } else if ( mut == "PSI_INCINERATE" ) {
+        //g->refresh_all();
+        tripoint tp;
+        std::vector<tripoint> trajectory = g->pl_target_ui(tp, 15, &(g->u.weapon), target_mode::TARGET_MODE_REACH);
+        if (!trajectory.empty()) {
+            Creature* critter = g->critter_at(tp);
+            if (critter != NULL) {
+                std::string mat = critter->get_material();
+                monster* z = dynamic_cast<monster*>(critter);
+                std::string zName = critter->disp_name();
+                if (critter->is_player()) {
+                    add_msg(_("You don't want to burn yourself!"));
+                }
+                else if (z != NULL && (z->made_of(LIQUID) || z->made_of("stone") || z->made_of("kevlar") ||
+                        z->made_of("steel") || z->has_flag(MF_FIREPROOF))) {
+                    add_msg(_("%s can't be hurt by fire!"), capitalize_letter(zName).c_str());
+                } else {
+                    damage_instance di;
+                    int dmg = rng(5,10);
+
+                    di.add_damage(DT_HEAT, dmg);
+                    critter->add_effect("onfire", rng(10, 20));
+                    dealt_damage_instance ddi = critter->deal_damage(&g->u, bp_torso, di);
+
+                    add_msg(_("%s incinerates like a torch!"), capitalize_letter(zName).c_str());
+                }
+            }
+        }
+        tdata.powered = false;
+    } else if ( mut == "PSI_WAVE" ) {
+        const int radius = 4;
+        g->shockwave(pos3(), radius, 8, 2, 8, true);
+        const std::unordered_set<ter_id> breakableTiles = {
+                t_window, t_window_domestic, t_window_no_curtains, t_curtains,
+                t_wall_glass, t_wall_glass_alarm, t_door_glass_c,
+                t_paper,
+                t_window_stained_blue, t_window_stained_green, t_window_stained_red };
+        for (int i = posx() - radius; i <= posx() + radius; i++) {
+            for (int j = posy() - radius; j <= posy() + radius; j++) {
+                const tripoint p(i, j, posz());
+                if (rl_dist(pos3(), p) > radius) continue;
+
+                const ter_id tid = g->m.ter(p);
+                if (breakableTiles.end() != breakableTiles.find(tid)) {
+                    g->m.bash(p, 100);
+                }
+            }
+        }
+
+        add_msg_if_player(m_neutral, _("You unleash a powerful wave of force around yourself!"));
+        tdata.powered = false;
     }
 }
 
